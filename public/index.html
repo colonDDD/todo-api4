@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Manager</title>
+  <style>
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; background:#f4f4f4; color:#333; display:flex; justify-content:center; padding:20px; }
+    .container { width:100%; max-width:600px; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+    h1 { text-align:center; margin-bottom:10px;}
+    p.subtitle { text-align:center; margin-bottom:20px; color:#666;}
+    form { display:flex; margin-bottom:20px;}
+    form input[type="text"] { flex:1; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:4px 0 0 4px;}
+    form button { padding:10px 15px; font-size:16px; border:none; background:#28a745; color:#fff; cursor:pointer; border-radius:0 4px 4px 0;}
+    nav.tabs { display:flex; justify-content:space-around; margin-bottom:20px;}
+    nav.tabs button { background:none; border:none; padding:10px 15px; font-size:16px; cursor:pointer; color:#333;}
+    nav.tabs button.active { border-bottom:2px solid #28a745; color:#28a745;}
+    .status { margin-bottom:20px; text-align:center; font-size:14px; color:#555;}
+    .tasks { list-style:none; margin-bottom:20px;}
+    .tasks li { display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;}
+    .tasks li:last-child { border:none;}
+    .tasks li .title { flex:1;}
+    .tasks li.completed .title { text-decoration:line-through; color:#888;}
+    .tasks li button { margin-left:10px; background:none; border:none; color:#dc3545; cursor:pointer;}
+    .clear-completed { display:block; text-align:center; padding:10px; background:#ffc107; color:#000; border:none; border-radius:4px; cursor:pointer;}
+    @media (max-width:600px){.container{padding:10px;} form input[type="text"], form button{font-size:14px;} nav.tabs button{font-size:14px;}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Task Manager</h1>
+    <p class="subtitle">Zarządzaj swoimi zadaniami efektywnie</p>
+
+    <form id="addTaskForm">
+      <input type="text" id="taskInput" placeholder="Dodaj zadanie" required>
+      <button type="submit">Dodaj</button>
+    </form>
+
+    <nav class="tabs">
+      <button class="active" data-filter="all">Wszystkie</button>
+      <button data-filter="active">Aktywne</button>
+      <button data-filter="completed">Wykonane</button>
+    </nav>
+
+    <p class="status" id="statusText">0 aktywnych zadań</p>
+
+    <ul class="tasks" id="tasksList"></ul>
+
+    <button class="clear-completed" id="clearCompletedBtn">Wyczyść wykonane</button>
+  </div>
+
+  <script>
+    const addTaskForm = document.getElementById('addTaskForm');
+    const taskInput = document.getElementById('taskInput');
+    const tasksList = document.getElementById('tasksList');
+    const statusText = document.getElementById('statusText');
+    const tabs = document.querySelectorAll('nav.tabs button');
+    const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+
+    let tasks = [];
+    let filter = 'all';
+
+    function renderTasks() {
+      tasksList.innerHTML = '';
+      let filtered = tasks;
+      if(filter === 'active') filtered = tasks.filter(t => !t.completed);
+      if(filter === 'completed') filtered = tasks.filter(t => t.completed);
+
+      filtered.forEach(task => {
+        const li = document.createElement('li');
+        li.className = task.completed ? 'completed' : '';
+        li.innerHTML = `
+          <span class="title">${task.title}</span>
+          <div>
+            <button class="toggleBtn">${task.completed ? '↩' : '✓'}</button>
+            <button class="deleteBtn">✖</button>
+          </div>
+        `;
+        tasksList.appendChild(li);
+
+        li.querySelector('.toggleBtn').addEventListener('click', () => {
+          task.completed = !task.completed;
+          renderTasks();
+        });
+
+        li.querySelector('.deleteBtn').addEventListener('click', () => {
+          tasks = tasks.filter(t => t !== task);
+          renderTasks();
+        });
+      });
+
+      const activeCount = tasks.filter(t => !t.completed).length;
+      statusText.textContent = `${activeCount} aktywnych zadań`;
+    }
+
+    addTaskForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const title = taskInput.value.trim();
+      if(!title) return;
+      tasks.push({title, completed:false});
+      taskInput.value = '';
+      renderTasks();
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        filter = tab.dataset.filter;
+        renderTasks();
+      });
+    });
+
+    clearCompletedBtn.addEventListener('click', () => {
+      tasks = tasks.filter(t => !t.completed);
+      renderTasks();
+    });
+
+    renderTasks();
+  </script>
+</body>
+</html>
