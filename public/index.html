@@ -7,6 +7,60 @@
   <style>
     * { box-sizing: border-box; margin:0; padding:0; }
     body { font-family: Arial, sans-serif; background:#f4f4f4; color:#333; display:flex; justify-content:center; padding:20px; }
+
+    /* ---------------- AUTH MODAL ---------------- */
+    .auth-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .auth-container.hidden { display: none; }
+
+    .auth-box {
+      background: #fff;
+      padding: 30px;
+      width: 100%;
+      max-width: 350px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      text-align: center;
+    }
+    .auth-box h2 { margin-bottom: 20px; }
+
+    .auth-box form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .auth-box input {
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    .auth-box button {
+      padding: 12px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .auth-switch {
+      margin-top: 15px;
+      font-size: 14px;
+    }
+    .auth-switch span {
+      color: #007bff;
+      cursor: pointer;
+    }
+
+    /* ---------------- MAIN APP ---------------- */
     .container { width:100%; max-width:600px; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
     h1 { text-align:center; margin-bottom:10px;}
     p.subtitle { text-align:center; margin-bottom:20px; color:#666;}
@@ -24,13 +78,53 @@
     .tasks li.completed .title { text-decoration:line-through; color:#888;}
     .tasks li button { margin-left:10px; background:none; border:none; color:#dc3545; cursor:pointer;}
     .clear-completed { display:block; text-align:center; padding:10px; background:#ffc107; color:#000; border:none; border-radius:4px; cursor:pointer;}
-    @media (max-width:600px){.container{padding:10px;} form input[type="text"], form button{font-size:14px;} nav.tabs button{font-size:14px;}}
+    #logoutBtn { margin-top:20px; width:100%; padding:10px; background:#dc3545; color:#fff; border:none; border-radius:6px; cursor:pointer;}
+
+    #adminBtn {
+      margin-top:10px;
+      width:100%;
+      padding:10px;
+      background:#007bff;
+      color:#fff;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      display:none;
+    }
+
+    @media (max-width:600px){
+      .container{padding:10px;}
+      form input[type="text"], form button{font-size:14px;}
+      nav.tabs button{font-size:14px;}
+    }
   </style>
 </head>
 <body>
+
+  <!-- ---------------- AUTH MODAL ---------------- -->
+  <div id="authContainer" class="auth-container hidden">
+    <div class="auth-box">
+      <h2 id="authTitle">Logowanie</h2>
+
+      <form id="authForm">
+        <input type="email" id="authEmail" placeholder="Email" required>
+        <input type="password" id="authPassword" placeholder="Hasło" required>
+        <button type="submit" id="authSubmit">Zaloguj</button>
+      </form>
+
+      <p class="auth-switch">
+        Nie masz konta?
+        <span id="switchToRegister">Zarejestruj się</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ---------------- MAIN APP ---------------- -->
   <div class="container">
     <h1>Task Manager</h1>
     <p class="subtitle">Zarządzaj swoimi zadaniami efektywnie</p>
+
+    <button id="adminBtn">Panel administratora</button>
 
     <form id="addTaskForm">
       <input type="text" id="taskInput" placeholder="Dodaj zadanie" required>
@@ -48,76 +142,224 @@
     <ul class="tasks" id="tasksList"></ul>
 
     <button class="clear-completed" id="clearCompletedBtn">Wyczyść wykonane</button>
+    <button id="logoutBtn">Wyloguj</button>
   </div>
 
-  <script>
-    const addTaskForm = document.getElementById('addTaskForm');
-    const taskInput = document.getElementById('taskInput');
-    const tasksList = document.getElementById('tasksList');
-    const statusText = document.getElementById('statusText');
-    const tabs = document.querySelectorAll('nav.tabs button');
-    const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-    let tasks = [];
-    let filter = 'all';
+  const API_URL = "http://localhost:3000";
 
-    function renderTasks() {
-      tasksList.innerHTML = '';
-      let filtered = tasks;
-      if(filter === 'active') filtered = tasks.filter(t => !t.completed);
-      if(filter === 'completed') filtered = tasks.filter(t => t.completed);
+  const authContainer = document.getElementById("authContainer");
+  const authForm = document.getElementById("authForm");
+  const authEmail = document.getElementById("authEmail");
+  const authPassword = document.getElementById("authPassword");
+  const authTitle = document.getElementById("authTitle");
+  const authSubmit = document.getElementById("authSubmit");
+  const switchToRegister = document.getElementById("switchToRegister");
 
-      filtered.forEach(task => {
-        const li = document.createElement('li');
-        li.className = task.completed ? 'completed' : '';
-        li.innerHTML = `
-          <span class="title">${task.title}</span>
-          <div>
-            <button class="toggleBtn">${task.completed ? '↩' : '✓'}</button>
-            <button class="deleteBtn">✖</button>
-          </div>
-        `;
-        tasksList.appendChild(li);
+  const addTaskForm = document.getElementById('addTaskForm');
+  const taskInput = document.getElementById('taskInput');
+  const tasksList = document.getElementById('tasksList');
+  const statusText = document.getElementById('statusText');
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+  const logoutBtn = document.getElementById("logoutBtn");
+  const adminBtn = document.getElementById("adminBtn");
 
-        li.querySelector('.toggleBtn').addEventListener('click', () => {
-          task.completed = !task.completed;
-          renderTasks();
-        });
+  let tasks = [];
+  let filter = 'all';
+  let token = localStorage.getItem("token");
+  let mode = "login";
+  let isAdmin = false;
 
-        li.querySelector('.deleteBtn').addEventListener('click', () => {
-          tasks = tasks.filter(t => t !== task);
-          renderTasks();
-        });
-      });
+  /* ---------------- AUTH ---------------- */
+  function showAuth() { authContainer.classList.remove("hidden"); }
+  function hideAuth() { authContainer.classList.add("hidden"); }
 
-      const activeCount = tasks.filter(t => !t.completed).length;
-      statusText.textContent = `${activeCount} aktywnych zadań`;
+  function switchMode() {
+    if (mode === "login") {
+      mode = "register";
+      authTitle.textContent = "Rejestracja";
+      authSubmit.textContent = "Zarejestruj";
+      switchToRegister.textContent = "Masz już konto? Zaloguj się";
+    } else {
+      mode = "login";
+      authTitle.textContent = "Logowanie";
+      authSubmit.textContent = "Zaloguj";
+      switchToRegister.textContent = "Nie masz konta? Zarejestruj się";
+    }
+  }
+  switchToRegister.addEventListener("click", switchMode);
+
+  authForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = authEmail.value.trim();
+    const password = authPassword.value.trim();
+
+    const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
+
+    const res = await fetch(API_URL + endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Błąd");
+      return;
     }
 
-    addTaskForm.addEventListener('submit', e => {
-      e.preventDefault();
-      const title = taskInput.value.trim();
-      if(!title) return;
-      tasks.push({title, completed:false});
-      taskInput.value = '';
-      renderTasks();
+    if (mode === "register") {
+      alert("Rejestracja udana! Możesz się zalogować.");
+      switchMode();
+      return;
+    }
+
+    token = data.token;
+    localStorage.setItem("token", token);
+
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    isAdmin = payload.role === "admin";
+
+    if (isAdmin) adminBtn.style.display = "block";
+
+    hideAuth();
+    loadTasks();
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    localStorage.removeItem("token");
+    token = null;
+    showAuth();
+  });
+
+  /* ---------------- TASKS ---------------- */
+  async function loadTasks() {
+    const res = await fetch(`${API_URL}/tasks`, {
+      headers: { Authorization: `Bearer ${token}` }
     });
 
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        filter = tab.dataset.filter;
-        renderTasks();
-      });
-    });
-
-    clearCompletedBtn.addEventListener('click', () => {
-      tasks = tasks.filter(t => !t.completed);
-      renderTasks();
-    });
-
+    tasks = await res.json();
     renderTasks();
-  </script>
+  }
+
+  async function loadAllTasksAdmin() {
+    const res = await fetch(`${API_URL}/admin/tasks`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    tasks = await res.json();
+    renderTasks();
+  }
+
+  adminBtn.addEventListener("click", () => {
+    loadAllTasksAdmin();
+  });
+
+  async function addTask(title) {
+    const res = await fetch(`${API_URL}/tasks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ title: title, description: "" })
+    });
+
+    const newTask = await res.json();
+    tasks.unshift(newTask);
+    renderTasks();
+  }
+
+  async function toggleTask(task) {
+    const res = await fetch(`${API_URL}/tasks/${task.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ completed: !task.completed })
+    });
+
+    const updated = await res.json();
+    task.completed = updated.completed;
+    renderTasks();
+  }
+
+  async function deleteTask(task) {
+    await fetch(`${API_URL}/tasks/${task.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    tasks = tasks.filter(t => t.id !== task.id);
+    renderTasks();
+  }
+
+  function renderTasks() {
+    tasksList.innerHTML = '';
+
+    let filtered = tasks;
+    if (filter === 'active') filtered = tasks.filter(t => !t.completed);
+    if (filter === 'completed') filtered = tasks.filter(t => t.completed);
+
+    filtered.forEach(task => {
+      const li = document.createElement('li');
+      li.className = task.completed ? 'completed' : '';
+      li.innerHTML = `
+        <span class="title">${task.title}</span>
+        <div>
+          <button class="toggleBtn">${task.completed ? '↩' : '✓'}</button>
+          <button class="deleteBtn">✖</button>
+        </div>
+      `;
+      tasksList.appendChild(li);
+
+      li.querySelector('.toggleBtn').addEventListener('click', () => toggleTask(task));
+      li.querySelector('.deleteBtn').addEventListener('click', () => deleteTask(task));
+    });
+
+    const activeCount = tasks.filter(t => !t.completed).length;
+    statusText.textContent = `${activeCount} aktywnych zadań`;
+  }
+
+  addTaskForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const title = taskInput.value.trim();
+    if (!title) return;
+    addTask(title);
+    taskInput.value = '';
+  });
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      filter = tab.dataset.filter;
+      renderTasks();
+    });
+  });
+
+  clearCompletedBtn.addEventListener('click', async () => {
+    const completed = tasks.filter(t => t.completed);
+    for (const task of completed) await deleteTask(task);
+  });
+
+  /* ---------------- START ---------------- */
+  if (!token) showAuth();
+  else {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    isAdmin = payload.role === "admin";
+    if (isAdmin) adminBtn.style.display = "block";
+    loadTasks();
+  }
+
+}); // DOMContentLoaded end
+</script>
+
 </body>
 </html>
